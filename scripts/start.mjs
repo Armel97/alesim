@@ -29,17 +29,39 @@ log("Variables d'environnement manquantes :", missing.length ? missing.join(", "
 
 // La version Cloudflare (npm run build) ne démarre pas de serveur sous Node :
 // si .output n'est pas une version "node-server", on la reconstruit.
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { execSync } from "node:child_process";
 let preset = null;
 try {
   preset = JSON.parse(readFileSync(new URL("../.output/nitro.json", import.meta.url), "utf8")).preset;
 } catch {}
 const entry = new URL("../.output/server/index.mjs", import.meta.url);
-if (preset !== "node-server" || !existsSync(entry)) {
-  log(`Version compilée inadaptée (${preset ?? "absente"}) : compilation Node.js en cours...`);
+
+// Les variables VITE_* sont intégrées au moment de la compilation : si elles ont
+// changé depuis le dernier build (ou si on ne sait pas), on recompile.
+const stamp = new URL("../.output/alesim-build-env.json", import.meta.url);
+const viteEnv = JSON.stringify(
+  Object.fromEntries(
+    Object.keys(process.env)
+      .filter((k) => k.startsWith("VITE_"))
+      .sort()
+      .map((k) => [k, process.env[k]]),
+  ),
+);
+let builtEnv = null;
+try {
+  builtEnv = readFileSync(stamp, "utf8");
+} catch {}
+
+let reason = null;
+if (preset !== "node-server" || !existsSync(entry)) reason = `version ${preset ?? "absente"}`;
+else if (builtEnv !== viteEnv) reason = "variables VITE_* modifiées depuis la dernière compilation";
+
+if (reason) {
+  log(`Recompilation nécessaire (${reason}) : compilation Node.js en cours...`);
   try {
     execSync("npm run build:node", { stdio: "inherit", env: { ...process.env, NITRO_PRESET: "node-server" } });
+    writeFileSync(stamp, viteEnv);
   } catch (e) {
     log("La compilation a échoué :", e?.message || e);
     process.exit(1);

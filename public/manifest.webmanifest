@@ -1,0 +1,15 @@
+{
+  "name": "ALESIM",
+  "short_name": "ALESIM",
+  "description": "Gagne en confiance et en clarté à l'oral, pour un vrai impact au quotidien.",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#7fa08f",
+  "background_color": "#f7f5ee",
+  "id": "/",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "/icon-alesim.png", "sizes": "816x816", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-alesim.png", "sizes": "816x816", "type": "image/png", "purpose": "maskable" }
+  ]
+}

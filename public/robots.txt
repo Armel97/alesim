@@ -1,0 +1,20 @@
+User-agent: *
+Allow: /
+
+# Espaces privés / authentifiés et données personnelles
+Disallow: /auth
+Disallow: /reset-password
+Disallow: /onboarding
+Disallow: /today
+Disallow: /coach
+Disallow: /cv
+Disallow: /video
+Disallow: /explore
+Disallow: /profile
+Disallow: /settings
+Disallow: /dashboard
+Disallow: /history
+Disallow: /compare
+Disallow: /api/
+
+Sitemap: https://alesimspeak.dev/sitemap.xml

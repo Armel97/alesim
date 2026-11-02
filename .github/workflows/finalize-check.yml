@@ -1,0 +1,68 @@
+name: Finalize check
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  finalize:
+    name: Vérifications pré-push
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Installer Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache des dépendances
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Installer les dépendances (lockfile gelé)
+        run: bun install --frozen-lockfile
+
+      - name: Vérifier que le lockfile est à jour
+        run: |
+          if [ -n "$(git status --porcelain bun.lock package.json)" ]; then
+            echo "::error::bun.lock ou package.json modifié par l'installation — lockfile désynchronisé."
+            git --no-pager diff -- bun.lock package.json
+            exit 1
+          fi
+
+      - name: Exécuter finalize-before-github.sh
+        id: finalize
+        run: |
+          chmod +x scripts/finalize-before-github.sh
+          set +e
+          bash scripts/finalize-before-github.sh --check --report report.md
+          echo "status=$?" >> "$GITHUB_OUTPUT"
+          set -e
+
+      - name: Ajouter le rapport au résumé
+        if: always()
+        run: cat report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publier le rapport en commentaire de PR
+        if: always() && github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: finalize-before-github
+          path: report.md
+
+      - name: Échouer si des vérifications ont échoué
+        if: always() && steps.finalize.outputs.status != '0'
+        run: exit 1

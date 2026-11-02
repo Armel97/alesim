@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
+    "build:node": "NITRO_PRESET=node-server vite build",
+    "prebuild:node": "node scripts/check-head-branding.mjs",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
@@ -14,7 +16,8 @@
     "check:branding": "node scripts/check-head-branding.mjs",
     "prebuild": "node scripts/check-head-branding.mjs",
     "prebuild:dev": "node scripts/check-head-branding.mjs",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package",
+    "start": "node .output/server/index.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.2",

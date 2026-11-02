@@ -31,6 +31,10 @@ log("Variables d'environnement manquantes :", missing.length ? missing.join(", "
 // si .output n'est pas une version "node-server", on la reconstruit.
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { execSync } from "node:child_process";
+import { readdirSync, statSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 let preset = null;
 try {
   preset = JSON.parse(readFileSync(new URL("../.output/nitro.json", import.meta.url), "utf8")).preset;
@@ -40,14 +44,33 @@ const entry = new URL("../.output/server/index.mjs", import.meta.url);
 // Les variables VITE_* sont intégrées au moment de la compilation : si elles ont
 // changé depuis le dernier build (ou si on ne sait pas), on recompile.
 const stamp = new URL("../.output/alesim-build-env.json", import.meta.url);
-const viteEnv = JSON.stringify(
-  Object.fromEntries(
+// Empreinte du code source : si le code a changé depuis la dernière compilation
+// (nouveau déploiement avec un ancien .output conservé), on recompile aussi.
+function sourceHash() {
+  const h = createHash("sha256");
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const walk = (dir) => {
+    for (const name of readdirSync(dir).sort()) {
+      const full = join(dir, name);
+      if (statSync(full).isDirectory()) walk(full);
+      else h.update(relative(root, full)).update(readFileSync(full));
+    }
+  };
+  for (const item of ["src", "public"]) if (existsSync(join(root, item))) walk(join(root, item));
+  for (const f of ["package.json", "package-lock.json", "vite.config.ts"])
+    if (existsSync(join(root, f))) h.update(f).update(readFileSync(join(root, f)));
+  return h.digest("hex");
+}
+
+const viteEnv = JSON.stringify({
+  env: Object.fromEntries(
     Object.keys(process.env)
       .filter((k) => k.startsWith("VITE_"))
       .sort()
       .map((k) => [k, process.env[k]]),
   ),
-);
+  source: sourceHash(),
+});
 let builtEnv = null;
 try {
   builtEnv = readFileSync(stamp, "utf8");
@@ -55,7 +78,7 @@ try {
 
 let reason = null;
 if (preset !== "node-server" || !existsSync(entry)) reason = `version ${preset ?? "absente"}`;
-else if (builtEnv !== viteEnv) reason = "variables VITE_* modifiées depuis la dernière compilation";
+else if (builtEnv !== viteEnv) reason = "code ou variables VITE_* modifiés depuis la dernière compilation";
 
 if (reason) {
   log(`Recompilation nécessaire (${reason}) : compilation Node.js en cours...`);
